@@ -3,11 +3,15 @@ const closestSemver = require('semver-closest')
 const normalize = require('normalize-version')
 const OS = require('./constants/os')
 const DEVICE = require('./constants/device')
+const windows = require('./constants/windows')
+const macosx = require('./constants/macosx')
+const osWeights = require('./constants/osWeights')
+const browserWeights = require('./constants/browserWeights')
 const tridentVersionMap = require('./constants/tridentVersions')
 const chromeWebkitVersionMap = require('./constants/chromeWebkitVersions')
 const safariWebkitVersionMap = require('./constants/safariWebkitVersions')
 const androidWebkitVersions = require('./constants/androidWebkitVersions')
-
+const safariVersions = safariWebkitVersionMap;
 const ANDROID_FLAVOURS = {
   KITKAT: '4.4.0',
   MARSHMELLOW: '6.0.0',
@@ -74,7 +78,7 @@ chrome.androidPhone = (opt) => {
   const androidVersion = opt.androidVersion || Defaults.ANDROID_VERSION
   const device = opt.device || Defaults.ANDROID_PHONE
 
-  return `Mozilla/5.0 (Linux; Android ${androidVersion}; ${device} Build/${buildVersion};) AppleWebKit/${webkitVersion} (KHTML, like Gecko) Chrome/${version} Mobile Safari/${webkitVersion}`
+  return `Mozilla/5.0 (Linux; Android ${androidVersion}; ${device} Build/${buildVersion}) AppleWebKit/${webkitVersion} (KHTML, like Gecko) Chrome/${version} Mobile Safari/${webkitVersion}`
 }
 
 chrome.androidTablet = (opt) => {
@@ -92,7 +96,7 @@ chrome.androidTablet = (opt) => {
 chrome.androidWebview = (opt) => {
   const androidVersion = normalize(
     (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : opt.androidVersion,
+      opt : opt.androidVersion
   )
   const chromeVersion = normalize(opt.chromeVersion || Defaults.WEBVIEW_CHROME_VERSION, 4)
   const webkitVersion = closestSemverValue(androidVersion, androidWebkitVersions)
@@ -100,12 +104,12 @@ chrome.androidWebview = (opt) => {
   const device = opt.device || Defaults.ANDROID_PHONE
 
   if (semver.lt(androidVersion, ANDROID_FLAVOURS.KITKAT)) {
-    return `Mozilla/5.0 (Linux; U; Android ${androidVersion}; ${device} Build/${buildVersion};) AppleWebKit/${webkitVersion} (KHTML, like Gecko) Version/4.0 Safari/${webkitVersion}`
+    return `Mozilla/5.0 (Linux; U; Android ${androidVersion}; ${device} Build/${buildVersion}) AppleWebKit/${webkitVersion} (KHTML, like Gecko) Version/4.0 Safari/${webkitVersion}`
   } else if (
     semver.gte(androidVersion, ANDROID_FLAVOURS.KITKAT) &&
     semver.lt(androidVersion, ANDROID_FLAVOURS.MARSHMELLOW)
   ) {
-    return `Mozilla/5.0 (Linux; Android ${androidVersion}; ${device} Build/${buildVersion};) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/${chromeVersion} Mobile Safari/537.36`
+    return `Mozilla/5.0 (Linux; Android ${androidVersion}; ${device} Build/${buildVersion}) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/${chromeVersion} Mobile Safari/537.36`
   } else {
     return `Mozilla/5.0 (Linux; Android ${androidVersion}; ${device} Build/${buildVersion}; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/${chromeVersion} Mobile Safari/537.36`
   }
@@ -123,12 +127,16 @@ chrome.chromecast = (opt) => {
 chrome.iOS = (opt) => {
   const iOSVersion = normalize(
     (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : opt.iOSVersion,
+      opt : opt.iOSVersion
   )
+  // for more recent versions of chrome, it seems this way with 2 and 3 octals for "AppleWebKit/" and "Safari"
+  // earlier- Version 48 seems to be the opposite, while even earlier seem to have 3 octals each
   const webkitVersion = closestSemverValue(iOSVersion, safariWebkitVersionMap)
+  const webkitVersion2norm = normalize(webkitVersion,2)
   const chromeVersion = normalize(opt.chromeVersion || Defaults.IOS_CHROME_VERSION, 4)
   const device = opt.device || Defaults.IOS_DEVICE
-  return `Mozilla/5.0 (${device}; CPU iPhone OS ${iOSVersion.replace(/\./g, '_')} like Mac OS X) AppleWebKit/${webkitVersion} (KHTML, like Gecko) CriOS/${chromeVersion} Mobile/14E5239e Safari/602.1`
+  const build = opt.build || '14E5239e'
+  return `Mozilla/5.0 (${device}; CPU iPhone OS ${iOSVersion.replace(/\./g, '_')} like Mac OS X) AppleWebKit/${webkitVersion} (KHTML, like Gecko) CriOS/${chromeVersion} Mobile/${build} Safari/${webkitVersion2norm}`
 }
 
 /***************
@@ -138,57 +146,59 @@ chrome.iOS = (opt) => {
 // @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent/Firefox
 
 function firefox(opt) {
+  let verString;
   const version = normalize(
-    (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : opt.version,
+    verString = (typeof opt === 'number' || typeof opt === 'string') ? opt : opt.version
   )
 
   const os = opt.os || Defaults.DESKTOP_OS
-  const geckoVersion = geckoVersion || Defaults.GECKO_VERSION
+  const geckoVersion = opt.geckoVersion || Defaults.GECKO_VERSION
   return semver.lt(version, '30.0.0') ? (
-    `Mozilla/5.0 (${os}; rv:${version}) Gecko/${geckoVersion || '20140303'} Firefox/${version}`
+    `Mozilla/5.0 (${os}; rv:${verString}) Gecko/${geckoVersion || '20140303'} Firefox/${verString}`
   ) : (
-    `Mozilla/5.0 (${os}; rv:${version}) Gecko/20100101 Firefox/${version}`
+    `Mozilla/5.0 (${os}; rv:${verString}) Gecko/20100101 Firefox/${verString}`
   )
 }
 
 firefox.androidPhone = (opt) => {
+  let verString;
   const version = normalize(
-    (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : opt.version,
+    verString = (typeof opt === 'number' || typeof opt === 'string') ? opt : opt.version
   )
   const buildVersion = opt.buildVersion || Defaults.ANDROID_BUILD_VERSION
   const androidVersion = opt.androidVersion || Defaults.ANDROID_VERSION
 
   if (semver.lt(version, '41.0.0')) {
-    return `Mozilla/5.0 (Android; Build/${buildVersion}; Mobile; rv:${version}) Gecko/${version} Firefox/${version}`
+    return `Mozilla/5.0 (Android; Mobile; rv:${verString}) Gecko/${verString} Firefox/${verString}`
   } else {
-    return `Mozilla/5.0 (Android ${androidVersion}; Build/${buildVersion}; Mobile; rv:${version}) Gecko/${version} Firefox/${version}`
+    return `Mozilla/5.0 (Android ${androidVersion}; Mobile; rv:${verString}) Gecko/${verString} Firefox/${verString}`
   }
 }
 
 firefox.androidTablet = (opt) => {
+  let verString;
   const version = normalize(
-    (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : opt.version,
+    verString = (typeof opt === 'number' || typeof opt === 'string') ? opt : opt.version
   )
   const buildVersion = opt.buildVersion || Defaults.ANDROID_BUILD_VERSION
   const androidVersion = opt.androidVersion || Defaults.ANDROID_VERSION
 
   if (semver.lt(version, '41.0.0')) {
-    return `Mozilla/5.0 (Android; Build/${buildVersion}; Tablet; rv:${version}) Gecko/${version} Firefox/${version}`
+    return `Mozilla/5.0 (Android; Tablet; rv:${verString}) Gecko/${verString} Firefox/${verString}` //Build/${buildVersion};
   } else {
-    return `Mozilla/5.0 (Android ${androidVersion}; Build/${buildVersion}; Tablet; rv:${version}) Gecko/${version} Firefox/${version}`
+    return `Mozilla/5.0 (Android ${androidVersion}; Tablet; rv:${verString}) Gecko/${verString} Firefox/${verString}` //Build/${buildVersion};
   }
 }
 
 firefox.iOS = (opt) => {
+  let verString;
   const iOSVersion = normalize(
-    (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : opt.iOSVersion,
+    verString = (typeof opt === 'number' || typeof opt === 'string') ? opt : opt.iOSVersion
   )
+  const webkitVersion = closestSemverValue(iOSVersion, safariWebkitVersionMap)
   const device = opt.device || Defaults.IOS_DEVICE
-  return `Mozilla/5.0 (${device}; CPU iPhone OS ${iOSVersion.replace(/\./g, '_')} like Mac OS X) AppleWebKit/600.1.4 (KHTML, like Gecko) FxiOS/1.0 Mobile/12F69 Safari/600.1.4`
+  const build = opt.device || '12F69'
+  return `Mozilla/5.0 (${device}; CPU iPhone OS ${verString.replace(/\./g, '_')} like Mac OS X) AppleWebKit/${webkitVersion} (KHTML, like Gecko) FxiOS/1.0 Mobile/${build} Safari/${webkitVersion}`
 }
 
 
@@ -197,32 +207,33 @@ firefox.iOS = (opt) => {
  /************/
 
 function safari(opt) {
+  let verString;
   const version = normalize(
-    (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : opt.version,
+    verString = (typeof opt === 'number' || typeof opt === 'string') ? opt : opt.version
   )
   const webkitVersion = closestSemverValue(version, safariWebkitVersionMap)
   const os = opt.os || Defaults.MAC_OS
 
-  return `Mozilla/5.0 (${os}) AppleWebKit/${webkitVersion} (KHTML, like Gecko) Version/${version} Safari/${webkitVersion}`
+  return `Mozilla/5.0 (${os}) AppleWebKit/${webkitVersion} (KHTML, like Gecko) Version/${verString} Safari/${webkitVersion}`
 }
 
 safari.iOS = (opt) => {
+  let iOSString;
   const iOSVersion = normalize(
-    (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : opt.iOSVersion,
+    iOSString = (typeof opt === 'number' || typeof opt === 'string') ? opt : opt.iOSVersion
   )
-  const safariVersion = normalize(opt.safariVersion || iOSVersion)
+  let safariString
+  const safariVersion = normalize(safariString = opt.safariVersion || iOSVersion)
   const webkitVersion = closestSemverValue(safariVersion, safariWebkitVersionMap)
   const device = opt.device || Defaults.IOS_DEVICE
 
-  return `Mozilla/5.0 (${device}; CPU iPhone OS ${iOSVersion.replace(/\./g, '_')} like Mac OS X) AppleWebKit/${webkitVersion} (KHTML, like Gecko) Version/${safariVersion} Mobile/14A403 Safari/${webkitVersion}`
+  return `Mozilla/5.0 (${device}; CPU iPhone OS ${iOSString.replace(/\./g, '_')} like Mac OS X) AppleWebKit/${webkitVersion} (KHTML, like Gecko) Version/${safariString} Mobile/14A403 Safari/${webkitVersion}`
 }
 
 safari.iOSWebview = (opt) => {
   const iOSVersion = normalize(
     (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : opt.iOSVersion,
+      opt : opt.iOSVersion
   )
   const safariVersion = normalize(opt.safariVersion || iOSVersion)
   const webkitVersion = closestSemverValue(safariVersion, safariWebkitVersionMap)
@@ -241,9 +252,9 @@ safari.iOSWebview = (opt) => {
 function ie(opt) {
   const version = normalize(
     (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : opt.version,
+      opt : opt.version
   )
-  const tridentVersion = closestSemverValue(version, tridentVersionMap)
+  const tridentVersion = closestSemverValue(version, tridentVersionMap) + '.0';
   const os = opt.os || Defaults.DESKTOP_OS
 
   if (semver.gte(version, '11.0.0')) {
@@ -254,15 +265,15 @@ function ie(opt) {
 }
 
 ie.windowsPhone = (opt) => {
+  let verString
   const version = normalize(
-    (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : opt.version,
+    verString = (typeof opt === 'number' || typeof opt === 'string') ? opt : opt.version
   )
-  const tridentVersion = closestSemverValue(version, tridentVersionMap)
+  const tridentVersion = closestSemverValue(version, tridentVersionMap) + '.0'
   const windowsPhoneVersion = closestSemverValue(version, windowsPhoneIEVersionMap)
   const device = opt.device || Defaults.WINDOW_PHONE
 
-  return `Mozilla/5.0 (compatible; MSIE ${version}; Windows Phone OS ${windowsPhoneVersion}; Trident/${tridentVersion}; IEMobile/${version}; ${device}`
+  return `Mozilla/5.0 (compatible; MSIE ${verString}; Windows Phone OS ${windowsPhoneVersion}; Trident/${tridentVersion}; IEMobile/${verString}; ${device}`
 }
 
 /**********************
@@ -272,13 +283,13 @@ ie.windowsPhone = (opt) => {
 function edge(opt) {
   const version = normalize(
     (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : opt.version,
+      opt : opt.version
   )
   const os = opt.os || Defaults.DESKTOP_OS
   const windowsBuildVersion = opt.windowsBuildVersion || Defaults.WINDOWS_BUILD_VERSION
   const chromeVersion = normalize(opt.chromeVersion || Defaults.EDGE_CHROME_VERSION, 4)
 
-  return `Mozilla/5.0 (${os};) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36 Edge/${version}.${windowsBuildVersion}`
+  return `Mozilla/5.0 (${os}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36 Edge/${version}.${windowsBuildVersion}`
 }
 
 /************************
@@ -288,7 +299,7 @@ function edge(opt) {
 function googleBot(opt) {
   const version = normalize(
     (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : Defaults.GOOGLE_BOT_VERSION,
+      opt : Defaults.GOOGLE_BOT_VERSION
   )
 
   return `Mozilla/5.0 (compatible; Googlebot/${version}; +http://www.google.com/bot.html)`
@@ -298,7 +309,7 @@ function googleBot(opt) {
 function bingBot(opt) {
   const version = normalize(
     (typeof opt === 'number' || typeof opt === 'string') ?
-      opt : Defaults.BING_BOT_VERSION,
+      opt : Defaults.BING_BOT_VERSION
   )
 
   return `Mozilla/5.0 (compatible; bingbot/${version}; +http://www.bing.com/bingbot.htm)`
@@ -309,6 +320,12 @@ function yahooBot() {
 }
 
 module.exports =  {
+  tridentVersionMap,
+  safariVersions,
+  browserWeights,
+  osWeights,
+  macosx,
+  windows,
   chrome,
   firefox,
   safari,
