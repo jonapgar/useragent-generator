@@ -6,11 +6,6 @@
   "repository": "https://github.com/pastelsky/useragent-generator",
   "author": "Shubham Kanodia <shubham.kanodia10@gmail.com>",
   "license": "MIT",
-  "files": [
-    "./index.js",
-    "./lib/index.js",
-    "./constants"
-  ],
   "scripts": {
     "test": "yarn run build && jest",
     "build": "NODE_ENV=production webpack"
